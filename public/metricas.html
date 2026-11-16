@@ -5,13 +5,24 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Métricas internas</title>
   <link rel="stylesheet" href="estilo.css" />
+  <style>
+    body { overflow: auto; padding: 24px 16px; }
+    h1 { font-size: 18px; letter-spacing: .12em; text-transform: uppercase; }
+    .desc { color: var(--suave); font-size: 12px; margin: 6px 0 16px; }
+    .caixa { background: var(--surface); border: 1px solid var(--borda); border-radius: var(--raio); padding: 8px 12px; overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+    th, td { padding: 8px 10px; border-bottom: 1px solid var(--borda); text-align: right; white-space: nowrap; }
+    th { color: var(--suave); font-size: 10.5px; text-transform: uppercase; letter-spacing: .08em; }
+    th:nth-child(-n+2), td:nth-child(-n+2) { text-align: left; }
+    td.lento { color: var(--late); font-weight: 700; }
+  </style>
 </head>
 <body>
   <h1>Métricas internas</h1>
-  <p class="sub">Tempos em memória desde <span id="desde"></span> · ordenado pelo p95 (o mais lento primeiro) · atualiza a cada 5 s</p>
-  <div class="quadro" style="margin-top:16px">
+  <p class="desc">Tempos em memória desde <span id="desde"></span> · ordenado pelo p95 (o mais lento primeiro) · atualiza a cada 5 s</p>
+  <div class="caixa">
     <table>
-      <thead><tr><td>Tipo</td><td>Nome</td><td>Chamadas</td><td>Erros</td><td>p50 (ms)</td><td>p95 (ms)</td><td>Máx (ms)</td></tr></thead>
+      <thead><tr><th>Tipo</th><th>Nome</th><th>Chamadas</th><th>Erros</th><th>p50 (ms)</th><th>p95 (ms)</th><th>Máx (ms)</th></tr></thead>
       <tbody id="linhas"></tbody>
     </table>
   </div>
@@ -24,6 +35,7 @@
       for (const s of m.series) {
         const tr = corpo.insertRow();
         for (const v of [s.tipo, s.nome, s.total, s.erros, s.p50, s.p95, s.max]) tr.insertCell().textContent = v;
+        if (s.p95 > 1000) tr.cells[5].className = "lento";
       }
     }
     atualizar();

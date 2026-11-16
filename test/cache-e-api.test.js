@@ -64,8 +64,8 @@ describe("API", () => {
     const res = await fetch(`${url}/api/painel`);
     const corpo = await res.json();
     assert.equal(res.status, 200);
-    assert.deepEqual(Object.keys(corpo.quadros), ["PATIO_CD", "INDO_PARA_LOJA", "EM_LOJA", "VOLTANDO", "SEM_SINAL"]);
-    assert.equal(Object.values(corpo.contadores).slice(0, 5).reduce((a, b) => a + b, 0), 60);
+    assert.deepEqual(Object.keys(corpo.quadros), ["PATIO_CD", "TRANSITO_LOJA", "DOCA_LOJA", "TRANSITO_CD", "SEM_SINAL"]);
+    assert.equal(Object.values(corpo.resumo.total).reduce((a, b) => a + b, 0), 75);
 
     const metricas = await (await fetch(`${url}/api/metricas`)).json();
     const nomes = metricas.series.map((s) => `${s.tipo}:${s.nome}`);

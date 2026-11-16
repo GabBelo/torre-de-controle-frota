@@ -4,32 +4,83 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Torre de Controle</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="estilo.css" />
 </head>
 <body>
-  <header>
-    <div>
-      <h1>Torre de Controle</h1>
-      <p class="sub">Dados fictícios · <span id="idade">carregando…</span></p>
+  <header class="topbar">
+    <nav class="topnav" aria-label="Telas">
+      <span class="topnav__pill" aria-disabled="true">Cargas</span>
+      <span class="topnav__pill is-active" aria-current="page">Dashboard</span>
+      <span class="topnav__pill" aria-disabled="true">Frota</span>
+    </nav>
+
+    <div class="marca">TORRE DE CONTROLE <small>dados fictícios</small></div>
+
+    <div class="ferramentas">
+      <span class="chip chip--sinal" id="semSinal" title="Rastreador sem posição há mais de 30 min">Sem sinal: 0</span>
+      <button class="btn-filtros" id="btnFiltros" type="button" aria-expanded="false">
+        <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="M3 5h18l-7 8v6l-4-2v-4L3 5z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
+        Filtros
+      </button>
+      <span class="chip chip--timer"><i></i>Tempo para próxima atualização: <b id="contagem">--</b> s</span>
     </div>
-    <div class="relogio" id="relogio">Tempo para próxima atualização: --</div>
+
+    <div class="painel-filtros" id="painelFiltros" hidden>
+      <label>Placa ou loja<input id="busca" type="search" placeholder="Ex.: TKM ou L12" /></label>
+      <fieldset>
+        <legend>Carga</legend>
+        <label><input type="checkbox" name="frio" value="seco" checked /> Seco</label>
+        <label><input type="checkbox" name="frio" value="frigo" checked /> Frigo</label>
+      </fieldset>
+      <label class="linha"><input id="soAlertas" type="checkbox" /> Só alertas</label>
+    </div>
   </header>
 
-  <section class="filtros">
-    <input id="busca" type="search" placeholder="Buscar placa ou loja" />
-    <select id="tipo"><option value="">Todos os tipos</option></select>
-    <label><input id="soAlertas" type="checkbox" /> Só alertas do pátio</label>
-  </section>
-
-  <main id="quadros"></main>
-
-  <template id="tpl-quadro">
-    <section class="quadro">
-      <h2><span class="titulo"></span> <span class="contador"></span></h2>
-      <table><tbody></tbody></table>
-      <p class="vazio">Nenhum veículo</p>
+  <main class="raias">
+    <!-- PÁTIO CD -->
+    <section class="raia" style="--cor: var(--lane-1)">
+      <header class="raia__topo">
+        <h2><i class="ponto"></i>Pátio CD</h2>
+      </header>
+      <table class="matriz">
+        <thead>
+          <tr><th></th><th colspan="3" class="grupo">Seco</th><th colspan="3" class="grupo">Frigo <span class="neve">❄</span></th></tr>
+          <tr><th></th><th>Cavalo</th><th>Carreta</th><th>Truck</th><th>Cavalo</th><th>Carreta</th><th>Truck</th></tr>
+        </thead>
+        <tbody id="matrizPatio"></tbody>
+      </table>
+      <div class="colunas">
+        <div><h3>Tração</h3><div class="lista" id="PATIO_CD-tracao"></div></div>
+        <div><h3>Carreta</h3><div class="lista" id="PATIO_CD-carreta"></div></div>
+      </div>
     </section>
-  </template>
+
+    <!-- TRÂNSITO PARA LOJA -->
+    <section class="raia" style="--cor: var(--lane-2)">
+      <header class="raia__topo"><h2><i class="ponto"></i>Trânsito para loja</h2><strong class="total" id="total-TRANSITO_LOJA">0</strong></header>
+      <div class="kpis" id="kpis-TRANSITO_LOJA"></div>
+      <div class="lista lista--unica" id="TRANSITO_LOJA"></div>
+    </section>
+
+    <!-- DOCA LOJA -->
+    <section class="raia" style="--cor: var(--lane-3)">
+      <header class="raia__topo"><h2><i class="ponto"></i>Doca loja</h2><strong class="total" id="total-DOCA_LOJA">0</strong></header>
+      <div class="kpis" id="kpis-DOCA_LOJA"></div>
+      <div class="colunas">
+        <div><h3>Tração</h3><div class="lista" id="DOCA_LOJA-tracao"></div></div>
+        <div><h3>Carreta</h3><div class="lista" id="DOCA_LOJA-carreta"></div></div>
+      </div>
+    </section>
+
+    <!-- TRÂNSITO PARA CD -->
+    <section class="raia" style="--cor: var(--lane-4)">
+      <header class="raia__topo"><h2><i class="ponto"></i>Trânsito para CD</h2><strong class="total" id="total-TRANSITO_CD">0</strong></header>
+      <div class="kpis" id="kpis-TRANSITO_CD"></div>
+      <div class="lista lista--unica" id="TRANSITO_CD"></div>
+    </section>
+  </main>
 
   <script type="module" src="app.js"></script>
 </body>

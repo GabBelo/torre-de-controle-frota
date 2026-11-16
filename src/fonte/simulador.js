@@ -1,19 +1,20 @@
 // Fonte de dados FICTÍCIA: simula a frota e um banco lento.
 // Em produção, este módulo seria substituído pelas consultas SQL ao TMS/rastreador.
-// Coordenadas e nomes são inventados (região genérica do litoral de SC).
+// Coordenadas, placas e lojas são inventadas (região genérica do litoral de SC).
 
 export const LOCAIS = {
-  cd: { lat: -26.9100, lon: -48.6700, raioM: 600, nome: "CD Central" },
-  lojas: {
-    L01: { lat: -26.9905, lon: -48.6350, raioM: 250, nome: "Loja 01" },
-    L02: { lat: -26.8200, lon: -48.6500, raioM: 250, nome: "Loja 02" },
-    L03: { lat: -27.0950, lon: -48.6150, raioM: 250, nome: "Loja 03" },
-    L04: { lat: -26.9300, lon: -48.9500, raioM: 250, nome: "Loja 04" },
-    L05: { lat: -26.4800, lon: -48.8000, raioM: 250, nome: "Loja 05" },
-  },
+  cd: { lat: -26.91, lon: -48.67, raioM: 600, nome: "CD Central" },
+  lojas: Object.fromEntries(
+    Array.from({ length: 30 }, (_, i) => {
+      const ang = (i / 30) * 2 * Math.PI;
+      const dist = 0.08 + (i % 5) * 0.06; // 9 a 35 km do CD, em volta dele
+      return [`L${String(i + 1).padStart(2, "0")}`, { lat: -26.91 + Math.sin(ang) * dist, lon: -48.67 + Math.cos(ang) * dist, raioM: 250 }];
+    }),
+  ),
 };
 
-const TIPOS = ["Cavalo", "Carreta refrigerada", "Carreta seca", "Truck"];
+const TRACAO = ["Conj. Seco", "Conj. Seco", "Truck Seco", "Conj. Frigo", "Truck Frigo", "Truck Frigo"];
+const LETRAS = "ABCDEFGHJKLMNPRSTUVWXZ";
 
 // Gerador pseudoaleatório com semente: dados reprodutíveis entre execuções.
 function rng(semente) {
@@ -27,52 +28,75 @@ const perto = (local, r, metros) => ({
 });
 const entre = (a, b, t) => ({ lat: a.lat + (b.lat - a.lat) * t, lon: a.lon + (b.lon - a.lon) * t });
 
-/** Gera a frota no instante `agora`. A semente muda a cada minuto, então o painel "mexe". */
-export function gerarFrota(agora = new Date(), qtd = 60) {
-  const r = rng(Math.floor(agora.getTime() / 60_000));
+/** Gera a frota no instante `agora`. A semente muda a cada 10 minutos, então o painel "mexe". */
+export function gerarFrota(agora = new Date()) {
+  const r = rng(Math.floor(agora.getTime() / 600_000));
+  const escolher = (lista) => lista[Math.floor(r() * lista.length)];
+  const usadas = new Set();
+  const placa = () => {
+    let p;
+    do p = `T${escolher(LETRAS)}${escolher(LETRAS)}${Math.floor(r() * 10)}${escolher(LETRAS)}${Math.floor(r() * 90 + 10)}`;
+    while (usadas.has(p));
+    usadas.add(p);
+    return p;
+  };
   const codigosLojas = Object.keys(LOCAIS.lojas);
+  const minAtras = (min) => new Date(agora - min * 60_000).toISOString();
+  const minDepois = (min) => new Date(agora.getTime() + min * 60_000).toISOString();
   const veiculos = [];
 
-  for (let i = 1; i <= qtd; i++) {
-    const placa = `TST${String(i).padStart(4, "0")}`; // placas obviamente fictícias
-    const loja = codigosLojas[Math.floor(r() * codigosLojas.length)];
+  const tracao = (cenario) => {
+    const tipo = escolher(TRACAO);
+    const loja = escolher(codigosLojas);
     const destino = LOCAIS.lojas[loja];
-    const sorteio = r();
-    const minutosAtras = (min) => new Date(agora - min * 60_000).toISOString();
+    const sub = tipo.startsWith("Conj") ? placa() : null;
+    const v = { placa: placa(), tipo, sub, viagem: null, indisponivel: false };
 
-    let posicao;
-    let viagem = null;
-    let entrouNoQuadroEm;
-    if (sorteio < 0.35) { // no pátio do CD (parte já programada)
-      posicao = perto(LOCAIS.cd, r, 600);
-      viagem = r() < 0.6 ? { loja, status: "PROGRAMADA" } : null;
-      entrouNoQuadroEm = minutosAtras(Math.floor(r() * 180));
-    } else if (sorteio < 0.6) { // em rota para a loja
-      posicao = entre(LOCAIS.cd, destino, 0.2 + r() * 0.7);
-      viagem = { loja, status: "EM_VIAGEM" };
-      entrouNoQuadroEm = minutosAtras(Math.floor(r() * 120));
-    } else if (sorteio < 0.75) { // descarregando na loja
-      posicao = perto(destino, r, 200);
-      viagem = { loja, status: "EM_VIAGEM" };
-      entrouNoQuadroEm = minutosAtras(Math.floor(r() * 90));
-    } else if (sorteio < 0.95) { // voltando
-      posicao = entre(destino, LOCAIS.cd, 0.1 + r() * 0.8);
-      viagem = { loja, status: "ENTREGUE" };
-      entrouNoQuadroEm = minutosAtras(Math.floor(r() * 100));
-    } else { // rastreador sem sinal
-      posicao = entre(LOCAIS.cd, destino, r());
-      entrouNoQuadroEm = minutosAtras(40 + Math.floor(r() * 200));
+    if (cenario === "patio") {
+      v.posicao = perto(LOCAIS.cd, r, 600);
+      v.entrouNoQuadroEm = minAtras(Math.floor(r() * 400));
+      if (r() < 0.35) v.viagem = { loja, status: "PROGRAMADA" };
+      else v.indisponivel = r() < 0.15;
+    } else if (cenario === "ida") {
+      v.posicao = entre(LOCAIS.cd, destino, 0.15 + r() * 0.75);
+      v.entrouNoQuadroEm = minAtras(Math.floor(r() * 180));
+      const agendado = 60 + Math.floor(r() * 240);
+      v.viagem = { loja, status: "EM_VIAGEM", agendadoEm: minDepois(agendado), previstoEm: minDepois(agendado - 150 + Math.floor(r() * 190)) };
+    } else if (cenario === "doca") {
+      v.posicao = perto(destino, r, 200);
+      v.entrouNoQuadroEm = minAtras(Math.floor(r() * 140));
+      v.viagem = { loja, status: "EM_VIAGEM" };
+    } else if (cenario === "volta") {
+      v.posicao = entre(destino, LOCAIS.cd, 0.1 + r() * 0.8);
+      v.entrouNoQuadroEm = minAtras(Math.floor(r() * 400));
+      v.viagem = { loja, status: "ENTREGUE", previstoEm: minDepois(-60 + Math.floor(r() * 180)) };
+    } else { // sem sinal
+      v.posicao = entre(LOCAIS.cd, destino, r());
+      v.entrouNoQuadroEm = minAtras(40 + Math.floor(r() * 200));
     }
-    const semSinal = sorteio >= 0.95;
+    v.posicao.em = cenario === "sem-sinal" ? v.entrouNoQuadroEm : minAtras(Math.floor(r() * 5));
+    veiculos.push(v);
+  };
+
+  const carretaSolta = (naLoja) => {
+    const loja = escolher(codigosLojas);
     veiculos.push({
-      placa,
-      tipo: TIPOS[Math.floor(r() * TIPOS.length)],
-      posicao: { ...posicao, em: semSinal ? entrouNoQuadroEm : minutosAtras(Math.floor(r() * 5)) },
-      viagem,
-      entrouNoQuadroEm,
-      indisponivel: !viagem && r() < 0.3, // manutenção, documentação etc.
+      placa: placa(),
+      tipo: r() < 0.75 ? "Carreta Seca" : "Carreta Frigo",
+      viagem: naLoja ? { loja, status: "EM_VIAGEM" } : r() < 0.1 ? { loja, status: "PROGRAMADA" } : null,
+      indisponivel: !naLoja && r() < 0.08,
+      posicao: { ...perto(naLoja ? LOCAIS.lojas[loja] : LOCAIS.cd, r, 200), em: minAtras(Math.floor(r() * 5)) },
+      entrouNoQuadroEm: minAtras(Math.floor(r() * 900)),
     });
-  }
+  };
+
+  for (let i = 0; i < 10; i++) tracao("patio");
+  for (let i = 0; i < 9; i++) tracao("ida");
+  for (let i = 0; i < 4; i++) tracao("doca");
+  for (let i = 0; i < 22; i++) tracao("volta");
+  for (let i = 0; i < 2; i++) tracao("sem-sinal");
+  for (let i = 0; i < 26; i++) carretaSolta(false);
+  for (let i = 0; i < 2; i++) carretaSolta(true);
   return veiculos;
 }
 

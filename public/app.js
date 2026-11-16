@@ -1,80 +1,119 @@
 // Front sem framework: busca o payload uma vez por ciclo e filtra TUDO no navegador.
 // Trocar um filtro não volta ao servidor — a resposta é instantânea.
+import { TIPOS_TRACAO } from "./tipos.js";
 
-const TITULOS = {
-  PATIO_CD: "Pátio CD",
-  INDO_PARA_LOJA: "Indo para loja",
-  EM_LOJA: "Em loja",
-  VOLTANDO: "Voltando",
-  SEM_SINAL: "Sem sinal",
-};
-
-const el = (id) => document.getElementById(id);
+const $ = (id) => document.getElementById(id);
 let dados = null;
 let proximaEm = 0;
+
+const fmtDuracao = (min) => (min < 1 ? "1m" : min >= 1440 ? `${Math.floor(min / 1440)}d` : min >= 60 ? `${Math.floor(min / 60)}h` : `${min}m`);
+const fmtData = (iso) => {
+  const d = new Date(iso);
+  const dd = String(d.getDate()).padStart(2, "0");
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  return `${dd}/${mm} ${d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}`;
+};
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
 
 async function carregar() {
   const res = await fetch("/api/painel");
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   dados = await res.json();
-  proximaEm = Date.now() + dados.proximaAtualizacaoMs;
-  preencherTipos();
+  proximaEm = Date.now() + (dados.proximaAtualizacaoMs || 60_000);
   render();
-  const idadeSeg = Math.round((Date.now() - new Date(dados.geradoEm)) / 1000);
-  el("idade").textContent = `dados de ${idadeSeg}s atrás (${res.headers.get("x-cache")})`;
 }
 
-function preencherTipos() {
-  const tipos = new Set(Object.values(dados.quadros).flat().map((v) => v.tipo));
-  const sel = el("tipo");
-  if (sel.options.length > 1) return;
-  for (const t of [...tipos].sort()) sel.add(new Option(t, t));
+// ---------- filtros (no navegador) ----------
+function filtros() {
+  const busca = $("busca").value.trim().toUpperCase();
+  const frios = new Set([...document.querySelectorAll('input[name="frio"]:checked')].map((i) => i.value));
+  const soAlertas = $("soAlertas").checked;
+  return (v) =>
+    (!busca || v.placa.includes(busca) || (v.sub ?? "").includes(busca) || (v.loja ?? "").includes(busca)) &&
+    frios.has(v.frio ? "frigo" : "seco") &&
+    (!soAlertas || v.alerta);
 }
 
-function filtrar(itens, quadro) {
-  const busca = el("busca").value.trim().toLowerCase();
-  const tipo = el("tipo").value;
-  const soAlertas = el("soAlertas").checked;
-  return itens.filter(
-    (v) =>
-      (!busca || v.placa.toLowerCase().includes(busca) || (v.loja ?? "").toLowerCase().includes(busca)) &&
-      (!tipo || v.tipo === tipo) &&
-      (!soAlertas || quadro !== "PATIO_CD" || v.atrasoSaida || v.indisponivel),
-  );
+// ---------- render ----------
+function cartao(v, { tempos = false } = {}) {
+  const classe = v.alerta ? "alerta" : v.indisponivel ? "indisp" : v.programado ? "prog" : "";
+  const prev = tempos && v.previstoEm ? `<span class="prev">PREV.:<b>${fmtData(v.previstoEm)}</b></span>` : "";
+  const agend = tempos && v.agendadoEm ? `<span class="agend">AGEND.:<b>${fmtData(v.agendadoEm)}</b></span>` : "";
+  return `
+    <article class="pill ${classe} ${v.loja ? "com-loja" : ""}" title="${esc(v.tipo)}">
+      <div class="pill__linha">
+        <span class="placa">${esc(v.placa)}</span>
+        <span class="ha">há ${fmtDuracao(v.minutos)}</span>
+        ${prev || agend ? `<span class="tempos">${prev}${agend}</span>` : ""}
+      </div>
+      ${v.sub ? `<div class="sub">${esc(v.sub)}</div>` : ""}
+      ${v.frio ? '<span class="frio" aria-label="refrigerado">❄</span>' : ""}
+      ${v.loja ? `<span class="loja">${esc(v.loja)}</span>` : ""}
+    </article>`;
 }
 
-const formatarMin = (m) => (m >= 60 ? `${Math.floor(m / 60)}h${String(m % 60).padStart(2, "0")}` : `${m} min`);
+function preencher(id, itens, opcoes) {
+  $(id).innerHTML = itens.length ? itens.map((v) => cartao(v, opcoes)).join("") : '<p class="vazio">Nenhum veículo</p>';
+}
+
+function kpis(id, itens) {
+  const cont = Object.fromEntries(TIPOS_TRACAO.map((t) => [t, 0]));
+  for (const v of itens) if (v.tipo in cont) cont[v.tipo]++;
+  $(id).innerHTML = TIPOS_TRACAO.map(
+    (t) => `<div class="kpi"><span>${/Frigo/.test(t) ? '<i class="neve">❄</i> ' : ""}${t.replace("Conj.", "Conj.")}</span><strong>${cont[t]}</strong></div>`,
+  ).join("");
+}
+
+function matriz(itens) {
+  const linhas = { disp: "Disp.", prog: "Prog.", indisp: "Indisp." };
+  const m = { disp: {}, prog: {}, indisp: {} };
+  for (const v of itens) {
+    const st = v.indisponivel ? "indisp" : v.programado ? "prog" : "disp";
+    const k = `${v.frio ? "frigo" : "seco"}-${v.equipamento}`;
+    m[st][k] = (m[st][k] ?? 0) + 1;
+  }
+  const cols = ["seco-cavalo", "seco-carreta", "seco-truck", "frigo-cavalo", "frigo-carreta", "frigo-truck"];
+  $("matrizPatio").innerHTML = Object.entries(linhas)
+    .map(([st, rot]) => `<tr class="${st}"><td>${rot}</td>${cols.map((c) => `<td>${m[st][c] ?? 0}</td>`).join("")}</tr>`)
+    .join("");
+}
 
 function render() {
-  const raiz = el("quadros");
-  raiz.replaceChildren();
-  for (const [quadro, itens] of Object.entries(dados.quadros)) {
-    const visiveis = filtrar(itens, quadro);
-    const node = el("tpl-quadro").content.cloneNode(true);
-    node.querySelector(".titulo").textContent = TITULOS[quadro];
-    node.querySelector(".contador").textContent = visiveis.length;
-    node.querySelector(".vazio").hidden = visiveis.length > 0;
-    const corpo = node.querySelector("tbody");
-    for (const v of visiveis) {
-      const tr = corpo.insertRow();
-      if (v.atrasoSaida) tr.className = "atraso";
-      else if (v.indisponivel) tr.className = "indisp";
-      tr.insertCell().textContent = v.placa;
-      tr.insertCell().textContent = v.tipo;
-      tr.insertCell().textContent = v.indisponivel ? "Indisponível" : v.loja ?? "—";
-      tr.insertCell().textContent = formatarMin(v.minutos);
-    }
-    raiz.append(node);
+  const ok = filtros();
+  const q = Object.fromEntries(Object.entries(dados.quadros).map(([k, v]) => [k, v.filter(ok)]));
+  const por = (lista, grupo) => lista.filter((v) => v.grupo === grupo);
+
+  matriz(q.PATIO_CD);
+  preencher("PATIO_CD-tracao", por(q.PATIO_CD, "tracao"));
+  preencher("PATIO_CD-carreta", por(q.PATIO_CD, "carreta"));
+
+  for (const quadro of ["TRANSITO_LOJA", "DOCA_LOJA", "TRANSITO_CD"]) {
+    $(`total-${quadro}`).textContent = q[quadro].length;
+    kpis(`kpis-${quadro}`, q[quadro]);
   }
+  preencher("TRANSITO_LOJA", q.TRANSITO_LOJA, { tempos: true });
+  preencher("DOCA_LOJA-tracao", por(q.DOCA_LOJA, "tracao"));
+  preencher("DOCA_LOJA-carreta", por(q.DOCA_LOJA, "carreta"));
+  preencher("TRANSITO_CD", q.TRANSITO_CD, { tempos: true });
+
+  const semSinal = dados.quadros.SEM_SINAL.length;
+  $("semSinal").textContent = `Sem sinal: ${semSinal}`;
+  $("semSinal").classList.toggle("tem", semSinal > 0);
 }
+
+// ---------- interação ----------
+$("btnFiltros").addEventListener("click", () => {
+  const painel = $("painelFiltros");
+  painel.hidden = !painel.hidden;
+  $("btnFiltros").setAttribute("aria-expanded", String(!painel.hidden));
+});
+$("painelFiltros").addEventListener("input", () => dados && render());
 
 // Contagem regressiva; ao zerar, busca o payload de novo (o servidor responde do cache).
 setInterval(() => {
   const seg = Math.max(0, Math.round((proximaEm - Date.now()) / 1000));
-  el("relogio").textContent = `Tempo para próxima atualização: ${seg}s`;
+  $("contagem").textContent = seg;
   if (dados && seg === 0) carregar().catch(console.error);
 }, 1000);
 
-for (const id of ["busca", "tipo", "soAlertas"]) el(id).addEventListener("input", () => dados && render());
-
-carregar().catch((e) => (el("quadros").textContent = `Erro ao carregar: ${e.message}`));
+carregar().catch((e) => (document.querySelector(".raias").textContent = `Erro ao carregar: ${e.message}`));
