@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Torre de Controle</title>
+  <link rel="stylesheet" href="estilo.css" />
+</head>
+<body>
+  <header>
+    <div>
+      <h1>Torre de Controle</h1>
+      <p class="sub">Dados fictícios · <span id="idade">carregando…</span></p>
+    </div>
+    <div class="relogio" id="relogio">Tempo para próxima atualização: --</div>
+  </header>
+
+  <section class="filtros">
+    <input id="busca" type="search" placeholder="Buscar placa ou loja" />
+    <select id="tipo"><option value="">Todos os tipos</option></select>
+    <label><input id="soAlertas" type="checkbox" /> Só alertas do pátio</label>
+  </section>
+
+  <main id="quadros"></main>
+
+  <template id="tpl-quadro">
+    <section class="quadro">
+      <h2><span class="titulo"></span> <span class="contador"></span></h2>
+      <table><tbody></tbody></table>
+      <p class="vazio">Nenhum veículo</p>
+    </section>
+  </template>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>

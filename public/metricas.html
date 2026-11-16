@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Métricas internas</title>
+  <link rel="stylesheet" href="estilo.css" />
+</head>
+<body>
+  <h1>Métricas internas</h1>
+  <p class="sub">Tempos em memória desde <span id="desde"></span> · ordenado pelo p95 (o mais lento primeiro) · atualiza a cada 5 s</p>
+  <div class="quadro" style="margin-top:16px">
+    <table>
+      <thead><tr><td>Tipo</td><td>Nome</td><td>Chamadas</td><td>Erros</td><td>p50 (ms)</td><td>p95 (ms)</td><td>Máx (ms)</td></tr></thead>
+      <tbody id="linhas"></tbody>
+    </table>
+  </div>
+  <script>
+    async function atualizar() {
+      const m = await (await fetch("/api/metricas")).json();
+      document.getElementById("desde").textContent = new Date(m.desde).toLocaleString("pt-BR");
+      const corpo = document.getElementById("linhas");
+      corpo.replaceChildren();
+      for (const s of m.series) {
+        const tr = corpo.insertRow();
+        for (const v of [s.tipo, s.nome, s.total, s.erros, s.p50, s.p95, s.max]) tr.insertCell().textContent = v;
+      }
+    }
+    atualizar();
+    setInterval(atualizar, 5000);
+  </script>
+</body>
+</html>

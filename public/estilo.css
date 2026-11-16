@@ -1,0 +1,27 @@
+:root {
+  --fundo: #f4f5f7; --cartao: #fff; --texto: #1d2330; --suave: #5b6475; --borda: #e2e5eb;
+  --atraso: #fde2e1; --atraso-texto: #b42318; --indisp: #ffedd5; --indisp-texto: #c2410c;
+  font-family: Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+  color: var(--texto); background: var(--fundo);
+}
+@media (prefers-color-scheme: dark) {
+  :root { --fundo: #11141a; --cartao: #1a1f28; --texto: #e7eaf0; --suave: #9aa3b2; --borda: #2a3140;
+    --atraso: #4a1d1d; --atraso-texto: #fca5a5; --indisp: #43290f; --indisp-texto: #fdba74; }
+}
+body { margin: 0; padding: 20px 16px 40px; }
+header { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+h1 { margin: 0; font-size: 1.5rem; }
+.sub { margin: 4px 0 0; color: var(--suave); }
+.relogio { background: var(--cartao); border: 1px solid var(--borda); border-radius: 8px; padding: 8px 12px; font-variant-numeric: tabular-nums; }
+.filtros { display: flex; gap: 10px; flex-wrap: wrap; margin: 16px 0; align-items: center; }
+.filtros input[type="search"], .filtros select { padding: 7px 10px; border: 1px solid var(--borda); border-radius: 6px; background: var(--cartao); color: var(--texto); }
+#quadros { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; align-items: start; }
+.quadro { background: var(--cartao); border: 1px solid var(--borda); border-radius: 10px; padding: 12px; }
+.quadro h2 { font-size: .95rem; margin: 0 0 8px; display: flex; justify-content: space-between; }
+.contador { background: var(--fundo); border-radius: 999px; padding: 0 10px; }
+table { width: 100%; border-collapse: collapse; font-size: .85rem; }
+td { padding: 6px 4px; border-bottom: 1px solid var(--borda); }
+td:last-child { text-align: right; font-variant-numeric: tabular-nums; }
+tr.atraso td { background: var(--atraso); color: var(--atraso-texto); font-weight: 600; }
+tr.indisp td { background: var(--indisp); color: var(--indisp-texto); }
+.vazio { color: var(--suave); font-size: .85rem; margin: 4px 0 0; }
